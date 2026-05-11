@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Temporal Java SDK sandbox application demonstrating basic workflow and activity patterns. The project uses Java 17, Maven, and Temporal SDK 1.34.0.
+This is a Temporal Java SDK sandbox application demonstrating basic workflow and activity patterns. The project uses Java 21, Maven, and Temporal SDK 1.34.0.
 
 ## Build and Test Commands
 

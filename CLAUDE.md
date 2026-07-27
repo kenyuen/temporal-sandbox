@@ -39,6 +39,20 @@ mvn exec:java -Dexec.mainClass="helloworldapp.HelloWorldWorker"
 mvn exec:java -Dexec.mainClass="helloworldapp.InitiateHelloWorld"
 ```
 
+## Durability Demo
+
+`helloworldapp.durability` contains a second, multi-step workflow (`DurableOrderWorkflow`) built
+specifically to demonstrate Temporal's durability guarantee: a Workflow Execution's progress
+lives in the Temporal Server's history, not in any Worker's memory.
+
+- `./scripts/demonstrate-durability.sh` runs a live demo against a real Temporal Server: it
+  starts an order, `kill -9`s the Worker process mid-execution, starts a brand new Worker
+  process, and shows the order finish without redoing completed steps.
+- `DurableOrderWorkflowDestructionTest` is the automated equivalent: it hands a completed
+  execution's history to a second Worker that has never seen the order (no Activities
+  registered) and asserts that Worker can deterministically reconstruct the whole execution via
+  `Worker.replayWorkflowExecution`, using nothing but that history.
+
 ## Temporal Architecture
 
 This codebase follows the standard Temporal pattern with clear separation between Workflows and Activities:

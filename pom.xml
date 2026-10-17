@@ -29,6 +29,10 @@
         <micrometer.override.version>1.15.12</micrometer.override.version>
         <!-- temporal-testing -> json-path 2.9.0 pins 2.5.0 (test scope). Fixes CVE-2024-57699. -->
         <json-smart.override.version>2.5.2</json-smart.override.version>
+        <!-- The Jackson that wrote existing Workflow histories (Temporal's pin before the
+             override). Stays put when the override or Temporal moves, since those histories
+             don't change. -->
+        <jackson.payload-fixture.version>2.15.4</jackson.payload-fixture.version>
     </properties>
 
     <dependencyManagement>
@@ -91,6 +95,54 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <!-- Re-runs PayloadConverterCompatibilityTest on the Jackson that wrote existing
+                         histories, proving its JSON fixture is what that version really produces. -->
+                    <execution>
+                        <id>payload-fixture-on-upstream-jackson</id>
+                        <goals>
+                            <goal>test</goal>
+                        </goals>
+                        <configuration>
+                            <test>PayloadConverterCompatibilityTest</test>
+                            <reportsDirectory>${project.build.directory}/surefire-reports-upstream-jackson</reportsDirectory>
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>com.fasterxml.jackson.core:*</classpathDependencyExclude>
+                                <classpathDependencyExclude>com.fasterxml.jackson.datatype:*</classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <additionalClasspathDependencies>
+                                <additionalClasspathDependency>
+                                    <groupId>com.fasterxml.jackson.core</groupId>
+                                    <artifactId>jackson-databind</artifactId>
+                                    <version>${jackson.payload-fixture.version}</version>
+                                </additionalClasspathDependency>
+                                <additionalClasspathDependency>
+                                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                                    <artifactId>jackson-datatype-jsr310</artifactId>
+                                    <version>${jackson.payload-fixture.version}</version>
+                                </additionalClasspathDependency>
+                                <additionalClasspathDependency>
+                                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                                    <artifactId>jackson-datatype-jdk8</artifactId>
+                                    <version>${jackson.payload-fixture.version}</version>
+                                </additionalClasspathDependency>
+                            </additionalClasspathDependencies>
+                            <systemPropertyVariables>
+                                <expectedJacksonVersion>${jackson.payload-fixture.version}</expectedJacksonVersion>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
 

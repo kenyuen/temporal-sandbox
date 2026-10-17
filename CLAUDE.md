@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Temporal Java SDK sandbox application demonstrating basic workflow and activity patterns. The project uses Java 21, Maven, and Temporal SDK 1.34.0.
+This is a Temporal Java SDK sandbox application demonstrating basic workflow and activity patterns. The project uses Java 21, Maven, and Temporal SDK 1.40.0 (set by the `temporal.version` property in `pom.xml`).
 
 ## Build and Test Commands
 
@@ -53,6 +53,24 @@ lives in the Temporal Server's history, not in any Worker's memory.
   registered) and asserts that Worker can deterministically reconstruct the whole execution via
   `Worker.replayWorkflowExecution`, using nothing but that history.
 
+## Dependency CVE Overrides
+
+The Temporal SDK pins Jackson and Micrometer (and `temporal-testing` pins json-smart via json-path)
+to versions with known CVEs. `pom.xml` overrides them through `<dependencyManagement>`, using the
+`*.override.version` properties; each property's comment lists Temporal's original pin and the CVEs
+it fixes. Each override is the lowest release that fixes those CVEs. Three tests guard them:
+
+- `CveOverrideGuardTest` reads the POM of every jar on the test classpath and fails once any of them
+  pins a version at or above an override. That means the override is redundant, or would silently
+  downgrade a newer Temporal: remove or raise it as the failure message says. Expect this when
+  bumping `temporal.version`.
+- `PayloadConverterCompatibilityTest` checks the overridden Jackson still encodes and decodes
+  payloads exactly as Jackson 2.15.4 (which wrote existing histories) did. The
+  `payload-fixture-on-upstream-jackson` Surefire execution re-runs it on 2.15.4 itself, so
+  `mvn test` runs it twice.
+- `MicrometerMetricsCompatibilityTest` exercises Temporal's `MicrometerClientStatsReporter` against
+  the overridden Micrometer.
+
 ## Temporal Architecture
 
 This codebase follows the standard Temporal pattern with clear separation between Workflows and Activities:
@@ -73,8 +91,8 @@ This codebase follows the standard Temporal pattern with clear separation betwee
 
 ### Testing Approach
 
-The project uses `temporal-testing` with `TestWorkflowRule`:
-- **Integration tests**: Use real activity implementations with `TestWorkflowRule`
+The project uses `temporal-testing` with JUnit 5's `TestWorkflowExtension`:
+- **Integration tests**: Use real activity implementations with `TestWorkflowExtension`
 - **Mocked tests**: Use Mockito to mock activities with `mock(ActivityClass.class, withSettings().withoutAnnotations())`
 
 ## Code Style Guidelines (from .github/copilot/prompt.md)

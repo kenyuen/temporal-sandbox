@@ -46,3 +46,4 @@ buildNumber.properties
 
 # Claude Code personal settings
 .claude/settings.local.json
+.vscode/settings.json

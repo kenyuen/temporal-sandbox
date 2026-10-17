@@ -13,30 +13,43 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- CVE overrides for versions the Temporal SDK pins. Each is the lowest release that
+             fixes every listed CVE, to stay close to what Temporal was tested against.
+             CveOverrideGuardTest fails once an upstream pin catches up with an override, so a
+             later Temporal upgrade can't be silently downgraded by a stale override. -->
+
+        <!-- Temporal pins 2.15.4. Fixes CVE-2026-18401, -89425, -68494 (jackson-core) and
+             CVE-2026-59888, -54515, -91777, -83557, -54514, -54512, -68497, -54513, -77310,
+             -19032, -91776 (jackson-databind). Guarded by PayloadConverterCompatibilityTest. -->
+        <jackson.override.version>2.18.11</jackson.override.version>
+        <!-- Temporal pins 1.9.9. Fixes CVE-2026-40984.
+             Guarded by MicrometerMetricsCompatibilityTest. -->
+        <micrometer.override.version>1.15.12</micrometer.override.version>
+        <!-- temporal-testing -> json-path 2.9.0 pins 2.5.0 (test scope). Fixes CVE-2024-57699. -->
+        <json-smart.override.version>2.5.2</json-smart.override.version>
     </properties>
 
-    <!-- The Temporal SDK pins Jackson, Micrometer and (via temporal-testing) json-smart to
-         versions with known CVEs; override them until Temporal ships patched pins. -->
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
-                <version>2.22.3</version>
+                <version>${jackson.override.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>io.micrometer</groupId>
                 <artifactId>micrometer-bom</artifactId>
-                <version>1.17.1</version>
+                <version>${micrometer.override.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>net.minidev</groupId>
                 <artifactId>json-smart</artifactId>
-                <version>2.6.0</version>
+                <version>${json-smart.override.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

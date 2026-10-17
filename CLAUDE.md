@@ -91,7 +91,10 @@ This codebase follows the standard Temporal pattern with clear separation betwee
 
 ### Testing Approach
 
-The project uses `temporal-testing` with JUnit 5's `TestWorkflowExtension`:
+The project uses `temporal-testing` with JUnit 6 (Jupiter, version from the `junit.version` property and
+`junit-bom`) and its `TestWorkflowExtension`. temporal-testing itself is built against JUnit 5.9;
+`TestWorkflowExtensionCompatibilityTest` checks the extension still works on JUnit 6, including its
+failure-only `TestWatcher` path:
 - **Integration tests**: Use real activity implementations with `TestWorkflowExtension`
 - **Mocked tests**: Use Mockito to mock activities with `mock(ActivityClass.class, withSettings().withoutAnnotations())`
 

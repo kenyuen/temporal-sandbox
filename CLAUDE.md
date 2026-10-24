@@ -8,6 +8,8 @@ This is a Temporal Java SDK sandbox application demonstrating basic workflow and
 
 ## Build and Test Commands
 
+The build requires Maven 3.6.3+ and Java 21+; `maven-enforcer-plugin` fails it early otherwise.
+
 ```bash
 # Build the project
 mvn clean install
@@ -58,8 +60,9 @@ lives in the Temporal Server's history, not in any Worker's memory.
 The Temporal SDK pins Jackson and Micrometer (and `temporal-testing` pins json-smart via json-path)
 to versions with known CVEs. `pom.xml` overrides them through `<dependencyManagement>`, using the
 `*.override.version` properties; each property's comment lists Temporal's original pin and the CVEs
-it fixes. Each override is the latest stable release of the library's current major version. Three
-tests guard them:
+it fixes. On each upgrade, an override moves to the latest stable release of the library's current
+major version, not merely the lowest that fixes the CVEs: the compatibility tests below are what make
+tracking upstream safe. Four tests guard them:
 
 - `CveOverrideGuardTest` reads the POM of every jar on the test classpath and fails once any of them
   pins a version at or above an override. That means the override is redundant, or would silently
@@ -71,6 +74,9 @@ tests guard them:
   `mvn test` runs it twice.
 - `MicrometerMetricsCompatibilityTest` exercises Temporal's `MicrometerClientStatsReporter` against
   the overridden Micrometer.
+- `JsonSmartOverrideTest` reads JSON through json-path on the overridden json-smart, and checks strict
+  parsing rejects the deeply nested objects behind CVE-2024-57699 instead of overflowing the stack
+  (it fails on 2.5.1).
 
 ## Temporal Architecture
 

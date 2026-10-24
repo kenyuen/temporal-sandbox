@@ -1,5 +1,6 @@
 package helloworldapp.durability;
 
+import io.temporal.api.common.v1.WorkflowExecution;
 import io.temporal.client.WorkflowOptions;
 import io.temporal.client.WorkflowStub;
 import io.temporal.common.WorkflowExecutionHistory;
@@ -112,8 +113,9 @@ class DurableOrderWorkflowDestructionTest {
         assertEquals(1, sendConfirmationCalls.get());
 
         // Everything worker A knew is now gone; all that's left is what the server persisted.
-        WorkflowExecutionHistory history =
-                testEnv.getWorkflowExecutionHistory(WorkflowStub.fromTyped(workflow).getExecution());
+        WorkflowExecution execution = WorkflowStub.fromTyped(workflow).getExecution();
+        WorkflowExecutionHistory history = testEnv.getWorkflowClient()
+                .fetchHistory(execution.getWorkflowId(), execution.getRunId());
 
         // Worker "process" B: a brand new WorkerFactory/Worker with no Activities registered and
         // no memory of order ORDER-1. It reconstructs the entire execution -- which steps ran,

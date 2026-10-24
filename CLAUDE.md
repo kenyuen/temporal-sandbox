@@ -58,8 +58,8 @@ lives in the Temporal Server's history, not in any Worker's memory.
 The Temporal SDK pins Jackson and Micrometer (and `temporal-testing` pins json-smart via json-path)
 to versions with known CVEs. `pom.xml` overrides them through `<dependencyManagement>`, using the
 `*.override.version` properties; each property's comment lists Temporal's original pin and the CVEs
-it fixes. Each override stays on the release line of the lowest release that fixes those CVEs,
-taking that line's latest patch. Three tests guard them:
+it fixes. Each override is the latest stable release of the library's current major version. Three
+tests guard them:
 
 - `CveOverrideGuardTest` reads the POM of every jar on the test classpath and fails once any of them
   pins a version at or above an override. That means the override is redundant, or would silently

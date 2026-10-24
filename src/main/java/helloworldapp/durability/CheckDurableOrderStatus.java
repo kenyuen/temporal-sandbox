@@ -1,5 +1,6 @@
 package helloworldapp.durability;
 
+import io.temporal.api.enums.v1.WorkflowExecutionStatus;
 import io.temporal.client.WorkflowClient;
 import io.temporal.client.WorkflowStub;
 import io.temporal.serviceclient.WorkflowServiceStubs;
@@ -25,5 +26,11 @@ public class CheckDurableOrderStatus {
 
         String status = stub.query("getStatus", String.class);
         System.out.println("STATUS: " + status);
+
+        // describe() answers from the server's record alone, so checking for completion never
+        // blocks; only a completed execution has a result to fetch.
+        if (stub.describe().getStatus() == WorkflowExecutionStatus.WORKFLOW_EXECUTION_STATUS_COMPLETED) {
+            System.out.println("RESULT: " + stub.getResult(String.class));
+        }
     }
 }

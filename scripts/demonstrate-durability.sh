@@ -116,7 +116,20 @@ echo "Worker process #2 started (pid $STARTED_PID)"
 
 log "Waiting for the order to finish"
 wait_for_line "$WORKER2_LOG" "Sent confirmation for $ORDER_ID" 120
-status_of
+# The last step's log line appears before the workflow task that closes the order, so keep
+# checking until the server reports the order's result.
+for _ in $(seq 1 10); do
+    STATUS_OUTPUT="$(status_of || true)"
+    if grep -q '^RESULT:' <<<"$STATUS_OUTPUT"; then
+        break
+    fi
+    sleep 1
+done
+echo "$STATUS_OUTPUT"
+if ! grep -q '^RESULT:' <<<"$STATUS_OUTPUT"; then
+    echo "The order did not report a result after its last step ran." >&2
+    exit 1
+fi
 
 log "Checking which worker did which step"
 # Each step must have run exactly where the story says, or the demo didn't show what it claims.

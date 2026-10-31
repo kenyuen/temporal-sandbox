@@ -36,6 +36,9 @@
         <!-- temporal-testing -> json-path 2.9.0 pins 2.5.0 (test scope). Fixes CVE-2024-57699.
              Guarded by JsonSmartOverrideTest. -->
         <json-smart.override.version>2.6.0</json-smart.override.version>
+        <!-- Temporal and its gRPC (grpc-api 1.76.0) pin 33.4.8-android. Fixes CVE-2026-102554.
+             Keeps their -android variant. Guarded by GuavaOverrideTest. -->
+        <guava.override.version>33.7.2-android</guava.override.version>
         <!-- The Jackson that wrote existing Workflow histories (Temporal's pin before the
              override). Stays put when the override or Temporal moves, since those histories
              don't change. -->
@@ -71,6 +74,11 @@
                 <groupId>net.minidev</groupId>
                 <artifactId>json-smart</artifactId>
                 <version>${json-smart.override.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.override.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

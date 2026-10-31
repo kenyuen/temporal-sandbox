@@ -1,6 +1,7 @@
 package helloworldapp;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
 import io.micrometer.core.instrument.MeterRegistry;
 import net.minidev.json.JSONValue;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,11 +43,20 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class CveOverrideGuardTest {
 
-    /** Only plain release versions are comparable; ranges, qualifiers and properties are not. */
+    /**
+     * Only plain release versions are comparable; ranges, qualifiers and properties are not. A
+     * library's own variant suffixes (Guava's -android/-jre) are stripped first; see
+     * {@link CveOverride#variantSuffixes}.
+     */
     private static final Pattern RELEASE_VERSION = Pattern.compile("\\d+(\\.\\d+)*");
     private static final Pattern PROPERTY = Pattern.compile("\\$\\{([^}]+)}");
 
-    record CveOverride(String property, Class<?> resolvedFrom, String ownRepositoryPath, Set<String> pinCoordinates) {
+    /**
+     * @param variantSuffixes suffixes that name a build variant rather than a pre-release, so they
+     *     don't affect ordering; empty for libraries whose versions are plain numbers
+     */
+    record CveOverride(String property, Class<?> resolvedFrom, String ownRepositoryPath, Set<String> pinCoordinates,
+            Set<String> variantSuffixes) {
         @Override
         public String toString() {
             return property;
@@ -60,29 +70,32 @@ class CveOverrideGuardTest {
                 Arguments.of(new CveOverride("jackson.override.version", ObjectMapper.class, "com/fasterxml/jackson/",
                         Set.of("com.fasterxml.jackson:jackson-bom",
                                 "com.fasterxml.jackson.core:jackson-databind",
-                                "com.fasterxml.jackson.core:jackson-core"))),
+                                "com.fasterxml.jackson.core:jackson-core"), Set.of())),
                 Arguments.of(new CveOverride("micrometer.override.version", MeterRegistry.class, "io/micrometer/",
-                        Set.of("io.micrometer:micrometer-bom", "io.micrometer:micrometer-core"))),
+                        Set.of("io.micrometer:micrometer-bom", "io.micrometer:micrometer-core"), Set.of())),
                 Arguments.of(new CveOverride("json-smart.override.version", JSONValue.class, "net/minidev/",
-                        Set.of("net.minidev:json-smart"))));
+                        Set.of("net.minidev:json-smart"), Set.of())),
+                Arguments.of(new CveOverride("guava.override.version", ImmutableList.class, "com/google/guava/",
+                        Set.of("com.google.guava:guava"), Set.of("-android", "-jre"))));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("overrides")
     void overrideIsStillNewerThanEveryUpstreamPin(CveOverride override) throws Exception {
         String resolved = jarOf(override.resolvedFrom()).getParent().getFileName().toString();
-        requireReleaseVersion(resolved, "resolved " + override.property());
+        requireReleaseVersion(release(resolved, override), "resolved " + override.property());
 
         List<Pin> pins = new ArrayList<>();
         for (Path pom : upstreamPoms(override)) {
-            pins.addAll(pinsIn(pom, override.pinCoordinates()));
+            pins.addAll(pinsIn(pom, override));
         }
         assertFalse(pins.isEmpty(), () -> "No POM on the test classpath pins " + override.pinCoordinates()
                 + " any more; <" + override.property() + "> may be unnecessary, or the pin moved to a parent"
                 + " POM this guard can't see. Check `mvn dependency:tree -Dverbose`.");
 
-        Pin highest = Collections.max(pins, Comparator.comparing(Pin::version, CveOverrideGuardTest::compare));
-        assertTrue(compare(resolved, highest.version()) > 0, () -> String.format(
+        Pin highest = Collections.max(pins,
+                Comparator.comparing((Pin pin) -> release(pin.version(), override), CveOverrideGuardTest::compare));
+        assertTrue(compare(release(resolved, override), release(highest.version(), override)) > 0, () -> String.format(
                 "%s pins %s %s, which is not older than our override %s. Remove <%s> from pom.xml if %s is"
                         + " free of the CVEs it lists, otherwise raise it.",
                 highest.pom().getFileName(), highest.coordinate(), highest.version(), resolved,
@@ -111,7 +124,7 @@ class CveOverrideGuardTest {
      * dependencyManagement. Version-less entries are skipped: they're managed by a BOM or parent,
      * and a BOM on the classpath is itself one of the pins checked.
      */
-    private static List<Pin> pinsIn(Path pom, Set<String> coordinates) throws Exception {
+    private static List<Pin> pinsIn(Path pom, CveOverride override) throws Exception {
         Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(pom.toFile());
         Element project = document.getDocumentElement();
         List<Pin> pins = new ArrayList<>();
@@ -124,9 +137,9 @@ class CveOverrideGuardTest {
             String coordinate = resolve(project, pom, childText(dependency, "groupId").orElse(""))
                     + ":" + resolve(project, pom, childText(dependency, "artifactId").orElse(""));
             Optional<String> version = childText(dependency, "version");
-            if (coordinates.contains(coordinate) && version.isPresent()) {
+            if (override.pinCoordinates().contains(coordinate) && version.isPresent()) {
                 String resolved = resolve(project, pom, version.get());
-                requireReleaseVersion(resolved, pom.getFileName() + " pin of " + coordinate);
+                requireReleaseVersion(release(resolved, override), pom.getFileName() + " pin of " + coordinate);
                 pins.add(new Pin(pom, coordinate, resolved));
             }
         }
@@ -184,6 +197,16 @@ class CveOverrideGuardTest {
             fail(what + " is '" + version + "', which is not a plain release version this guard can"
                     + " compare (range, qualifier or unresolved property); check it by hand.");
         }
+    }
+
+    /** The version without the library's variant suffix, if it has one. */
+    private static String release(String version, CveOverride override) {
+        for (String suffix : override.variantSuffixes()) {
+            if (version.endsWith(suffix)) {
+                return version.substring(0, version.length() - suffix.length());
+            }
+        }
+        return version;
     }
 
     private static Path jarOf(Class<?> type) throws Exception {

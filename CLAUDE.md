@@ -57,17 +57,17 @@ lives in the Temporal Server's history, not in any Worker's memory.
 
 ## Dependency CVE Overrides
 
-The Temporal SDK pins Jackson and Micrometer (and `temporal-testing` pins json-smart via json-path)
-to versions with known CVEs. `pom.xml` overrides them through `<dependencyManagement>`, using the
+The Temporal SDK pins Jackson, Micrometer and Guava (and `temporal-testing` pins json-smart via
+json-path) to versions with known CVEs. `pom.xml` overrides them through `<dependencyManagement>`, using the
 `*.override.version` properties; each property's comment lists Temporal's original pin and the CVEs
 it fixes. On each upgrade, an override moves to the latest stable release of the library's current
 major version, not merely the lowest that fixes the CVEs: the compatibility tests below are what make
-tracking upstream safe. Four tests guard them:
+tracking upstream safe. Five tests guard them:
 
 - `CveOverrideGuardTest` reads the POM of every jar on the test classpath and fails once any of them
   pins a version at or above an override. That means the override is redundant, or would silently
   downgrade a newer Temporal: remove or raise it as the failure message says. Expect this when
-  bumping `temporal.version`.
+  bumping `temporal.version`. Guava's `-android`/`-jre` suffixes are ignored when comparing.
 - `PayloadConverterCompatibilityTest` checks the overridden Jackson still encodes and decodes
   payloads exactly as Jackson 2.15.4 (which wrote existing histories) did. The
   `payload-fixture-on-upstream-jackson` Surefire execution re-runs it on 2.15.4 itself, so
@@ -77,6 +77,10 @@ tracking upstream safe. Four tests guard them:
 - `JsonSmartOverrideTest` reads JSON through json-path on the overridden json-smart, and checks strict
   parsing rejects the deeply nested objects behind CVE-2024-57699 instead of overflowing the stack
   (it fails on 2.5.1).
+- `GuavaOverrideTest` deserializes a one-entry `CompactHashMap` stream whose element count is
+  inflated to ~2^30, and checks that allocates under 64 MB instead of sizing arrays for the claimed
+  count (CVE-2026-102554; it fails on 33.4.8). Temporal itself running on the overridden Guava is
+  covered by the Workflow tests.
 
 ## Temporal Architecture
 
